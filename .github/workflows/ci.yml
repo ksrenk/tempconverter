@@ -1,0 +1,59 @@
+name: TempConverter CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: CIRootPassword2026
+          MYSQL_DATABASE: tempconverter
+          MYSQL_USER: tempuser
+          MYSQL_PASSWORD: CITempUser2026
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -pCIRootPassword2026"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DB_USER: tempuser
+      DB_PASS: CITempUser2026
+      DB_HOST: 127.0.0.1
+      DB_NAME: tempconverter
+      STUDENT: Karlo Šrenk
+      COLLEGE: Algebra Bernays University
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        run: |
+          python -m pytest -v tests/test_unit.py
+
+      - name: Run integration tests
+        run: |
+          python -m pytest -v tests/test_integration.py
+
+      - name: Build container image
+        run: |
+          docker build -t tempconverter:ci .
