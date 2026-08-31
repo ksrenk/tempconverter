@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+
+  db:
+    image: mysql:8.0
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: tempconverter
+      MYSQL_USER: tempuser
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+    networks:
+      - tempconverter-net
+
+    deploy:
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      restart_policy:
+        condition: any
+        delay: 10s
+
+
+  app:
+    image: docker.io/ksrenk/tempconverter:dev
+
+    environment:
+      DB_USER: tempuser
+      DB_PASS: ${MYSQL_PASSWORD}
+      DB_HOST: db
+      DB_NAME: tempconverter
+      STUDENT: "Karlo Šrenk"
+      COLLEGE: "Algebra Bernays University"
+
+    networks:
+      - tempconverter-net
+
+    ports:
+      - target: 5000
+        published: 80
+        protocol: tcp
+        mode: ingress
+
+    deploy:
+      replicas: 2
+
+      placement:
+        constraints:
+          - node.role == worker
+
+        max_replicas_per_node: 1
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+
+networks:
+  tempconverter-net:
+    driver: overlay
+
+
+volumes:
+  mysql-data:
