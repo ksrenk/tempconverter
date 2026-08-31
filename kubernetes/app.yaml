@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempconverter
+  namespace: tempconverter
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: tempconverter
+
+  template:
+    metadata:
+      labels:
+        app: tempconverter
+
+    spec:
+
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z mysql 3306; do
+                echo "Waiting for MySQL..."
+                sleep 2
+              done
+
+      containers:
+        - name: tempconverter
+          image: docker.io/ksrenk/tempconverter:dev
+
+          ports:
+            - containerPort: 5000
+
+          env:
+            - name: DB_USER
+              value: tempuser
+
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_PASSWORD
+
+            - name: DB_HOST
+              value: mysql
+
+            - name: DB_NAME
+              value: tempconverter
+
+            - name: STUDENT
+              value: "Karlo Šrenk"
+
+            - name: COLLEGE
+              value: "Algebra Bernays University"
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - tempconverter
+              topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempconverter
+  namespace: tempconverter
+
+spec:
+  selector:
+    app: tempconverter
+
+  ports:
+    - port: 80
+      targetPort: 5000
